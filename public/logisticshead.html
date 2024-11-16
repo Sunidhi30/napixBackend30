@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Example</title>
+</head>
+<body>
+    <h1>Login</h1>
+    <form id="loginForm">
+        <label for="email">Email:</label>
+        <input type="email" id="email" required>
+        <br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" required>
+        <br>
+        <button type="submit">Login</button>
+    </form>
+
+    <!-- Section for adding a driver -->
+    <div id="addDriverSection" style="display: none;">
+        <h2>Add Driver</h2>
+        <form id="addDriverForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" required>
+            <br>
+            <label for="mobileNumber">Mobile Number:</label>
+            <input type="text" id="mobileNumber" required>
+            <br>
+            <label for="driverEmail">Driver Email:</label>
+            <input type="email" id="driverEmail" required>
+            <br>
+            <button type="submit">Add Driver</button>
+        </form>
+    </div>
+
+    <!-- Section for adding a vehicle -->
+    <div id="addVehicleSection" style="display: none;">
+        <h2>Add Vehicle</h2>
+        <form id="addVehicleForm">
+            <label for="vehicleNumber">Vehicle Number:</label>
+            <input type="text" id="vehicleNumber" required>
+            <br>
+            <button type="submit">Add Vehicle</button>
+        </form>
+    </div>
+
+    <!-- Section for creating a route -->
+    <div id="createRouteSection" style="display: none;">
+        <h2>Create Route</h2>
+        <form id="createRouteForm">
+            <label for="vehicleSelect">Select Vehicle:</label>
+            <select id="vehicleSelect" required></select>
+            <br>
+            <label for="driverSelect">Select Driver:</label>
+            <select id="driverSelect" required></select>
+            <br>
+            <label for="fromLocation">From Location:</label>
+            <input type="text" id="fromLocation" required>
+            <br>
+            <label for="toLocation">To Location:</label>
+            <input type="text" id="toLocation" required>
+            <br>
+            <label for="departureTime">Departure Time:</label>
+            <input type="datetime-local" id="departureTime" required>
+            <br>
+            <button type="submit">Create Route</button>
+        </form>
+    </div>
+
+    <pre id="result"></pre>
+
+    <script>
+        // Fetch drivers and vehicles and populate the select elements
+        const populateSelects = async () => {
+            try {
+                const token = localStorage.getItem('token'); // Retrieve the token from localStorage
+                
+                // Fetch drivers
+                const driverResponse = await fetch('http://localhost:5001/api/drivers/getdrivers', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                const drivers = await driverResponse.json();
+                
+                const driverSelect = document.getElementById('driverSelect');
+                drivers.forEach(driver => {
+                    const option = document.createElement('option');
+                    option.value = driver.name;
+                    option.textContent = driver.name;
+                    driverSelect.appendChild(option);
+                });
+
+                // Fetch vehicles
+                const vehicleResponse = await fetch('http://localhost:5001/api/vehicles/getvehicles', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                const vehicles = await vehicleResponse.json();
+                
+                const vehicleSelect = document.getElementById('vehicleSelect');
+                vehicles.forEach(vehicle => {
+                    const option = document.createElement('option');
+                    option.value = vehicle.vehicleNumber;
+                    option.textContent = vehicle.vehicleNumber;
+                    vehicleSelect.appendChild(option);
+                });
+            } catch (error) {
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+            }
+        };
+
+        // Function to handle login
+        const handleLogin = async (event) => {
+            event.preventDefault(); // Prevent form submission
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('http://localhost:5001/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const contentType = response.headers.get('Content-Type');
+                
+                // Check if the response is JSON
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    const token = data.token;
+                    const role = data.role;
+
+                    // Store token in localStorage
+                    localStorage.setItem('token', token);
+
+                    // Display message based on user role
+                    let message;
+                    if (role === 'driver') {
+                        message = 'User is a driver.';
+                        document.getElementById('addDriverSection').style.display = 'none'; // Hide the form for drivers
+                        document.getElementById('addVehicleSection').style.display = 'none'; // Hide the form for vehicles
+                        document.getElementById('createRouteSection').style.display = 'none'; // Hide the form for routes
+                    } else if (role === 'logistics_head') {
+                        message = 'User is a logistics head. You can add drivers, vehicles, and create routes below.';
+                        document.getElementById('addDriverSection').style.display = 'block'; // Show the form for adding drivers
+                        document.getElementById('addVehicleSection').style.display = 'block'; // Show the form for adding vehicles
+                        document.getElementById('createRouteSection').style.display = 'block'; // Show the form for creating routes
+                        populateSelects(); // Populate select elements
+                    } else {
+                        message = 'User role is not recognized.';
+                        document.getElementById('addDriverSection').style.display = 'none'; // Hide the form for unknown roles
+                        document.getElementById('addVehicleSection').style.display = 'none'; // Hide the form for unknown roles
+                        document.getElementById('createRouteSection').style.display = 'none'; // Hide the form for unknown roles
+                    }
+                    
+                    document.getElementById('result').textContent = `Login successful! ${message}`;
+                } else {
+                    // If response is not JSON, log the text
+                    const text = await response.text();
+                    document.getElementById('result').textContent = 'Unexpected response: ' + text;
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+            }
+        };
+
+        // Function to handle adding a driver
+        const handleAddDriver = async (event) => {
+            event.preventDefault(); // Prevent form submission
+
+            const name = document.getElementById('name').value;
+            const mobileNumber = document.getElementById('mobileNumber').value;
+            const email = document.getElementById('driverEmail').value;
+
+            try {
+                const token = localStorage.getItem('token'); // Retrieve the token from localStorage
+
+                const response = await fetch('http://localhost:5001/api/drivers/add-driver', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`, // Include the token in the header
+                    },
+                    body: JSON.stringify({ name, mobileNumber, email }),
+                });
+
+                if (response.ok) {
+                    document.getElementById('result').textContent = 'Driver added successfully!';
+                } else {
+                    const error = await response.json();
+                    document.getElementById('result').textContent = 'Failed to add driver: ' + error.error;
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+            }
+        };
+
+        // Function to handle adding a vehicle
+        const handleAddVehicle = async (event) => {
+            event.preventDefault(); // Prevent form submission
+
+            const vehicleNumber = document.getElementById('vehicleNumber').value;
+
+            try {
+                const token = localStorage.getItem('token'); // Retrieve the token from localStorage
+
+                const response = await fetch('http://localhost:5001/api/vehicles/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`, // Include the token in the header
+                    },
+                    body: JSON.stringify({ vehicleNumber }),
+                });
+
+                if (response.ok) {
+                    document.getElementById('result').textContent = 'Vehicle added successfully!';
+                } else {
+                    const error = await response.json();
+                    document.getElementById('result').textContent = 'Failed to add vehicle: ' + error.error;
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+            }
+        };
+
+        // Function to handle creating a route
+        const handleCreateRoute = async (event) => {
+            event.preventDefault(); // Prevent form submission
+
+            const vehicleNumber = document.getElementById('vehicleSelect').value;
+            const driverName = document.getElementById('driverSelect').value;
+            const fromLocation = document.getElementById('fromLocation').value;
+            const toLocation = document.getElementById('toLocation').value;
+            const departureTime = document.getElementById('departureTime').value;
+
+            try {
+                const token = localStorage.getItem('token'); // Retrieve the token from localStorage
+
+                const response = await fetch('http://localhost:5001/api/routes/create-route', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`, // Include the token in the header
+                    },
+                    body: JSON.stringify({ vehicleNumber, driverName, fromLocation, toLocation, departureDetails: { departureTime } }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('result').textContent = 'Route created successfully! Route ID: ' + data.routeId;
+                } else {
+                    const error = await response.json();
+                    document.getElementById('result').textContent = 'Failed to create route: ' + error.error;
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+            }
+        };
+
+        // Attach event handlers to forms
+        document.getElementById('loginForm').addEventListener('submit', handleLogin);
+        document.getElementById('addDriverForm').addEventListener('submit', handleAddDriver);
+        document.getElementById('addVehicleForm').addEventListener('submit', handleAddVehicle);
+        document.getElementById('createRouteForm').addEventListener('submit', handleCreateRoute);
+    </script>
+</body>
+</html>

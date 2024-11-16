@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Driver</title>
+    <!-- Use CDN for Socket.IO -->
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        // Determine base URL based on environment
+        const baseURL = window.location.hostname === 'localhost' ? 'http://localhost:5001' : 'https://napixbackend-2.onrender.com';
+
+        // Initialize Socket.IO client
+        const socket = io(baseURL, {
+            auth: {
+                token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NmUyOWQ2Nzg0YTkwODU3NGMzMzNlMDQiLCJyb2xlIjoiZHJpdmVyIiwiaWF0IjoxNzI2MTQ3OTkyfQ.ChUSU1UfY2oXdw1Eh4bvYqfZIl6gj3gZ4TWk1377Udk'
+            }
+        });
+    </script>
+</head>
+<body>
+    <h1>Driver Communication</h1>
+
+    <!-- Input field for vehicle number -->
+    <label for="vehicleNumber">Enter Vehicle Number:</label>
+    <input type="text" id="vehicleNumber" placeholder="Enter your vehicle number">
+    <button id="joinRoom">Join Room</button>
+
+    <!-- Section for sending messages -->
+    <div id="messageSection" style="display:none;">
+        <h3>Send a message:</h3>
+        <input type="text" id="messageInput" placeholder="Type a message">
+        <button id="sendMessage">Send Message</button>
+
+        <!-- Message list to display sent/received messages -->
+        <ul id="messageList"></ul>
+    </div>
+
+    <!-- Button to end route and disconnect -->
+    <button id="endSession" style="display:none;">End Route & Disconnect</button>
+
+    <script>
+        // Function to append a message to the message list
+        function appendMessage(message, from = 'You') {
+            const messageList = document.getElementById('messageList');
+            const listItem = document.createElement('li');
+            listItem.textContent = `${from}: ${message}`;
+            messageList.appendChild(listItem);
+        }
+
+        // Button to join room
+        document.getElementById('joinRoom').addEventListener('click', () => {
+            const vehicleNumber = document.getElementById('vehicleNumber').value;
+
+            if (vehicleNumber) {
+                // Join a specific room based on the vehicle number
+                socket.emit('joinRoom', vehicleNumber);
+
+                // Listen for the response from the server
+                socket.on('message', (msg) => {
+                    if (msg.includes('Successfully joined')) {
+                        alert(msg);
+                        // Show the message section and end session button
+                        document.getElementById('messageSection').style.display = 'block';
+                        document.getElementById('endSession').style.display = 'block';
+                    } else {
+                        // Show error message if the driver is not allowed to join
+                        alert(msg);
+                    }
+                });
+            } else {
+                alert('Please enter your vehicle number.');
+            }
+        });
+
+        // Button to send message
+        document.getElementById('sendMessage').addEventListener('click', () => {
+            const message = document.getElementById('messageInput').value;
+            if (message) {
+                // Send the message to the server
+                socket.emit('sendMessage', document.getElementById('vehicleNumber').value, message);
+
+                // Display the sent message on the page
+                appendMessage(message);
+
+                // Clear the input field after sending the message
+                document.getElementById('messageInput').value = '';
+            } else {
+                alert('Please enter a message to send.');
+            }
+        });
+
+        // Button to end the route and disconnect
+        document.getElementById('endSession').addEventListener('click', () => {
+            const vehicleNumber = document.getElementById('vehicleNumber').value;
+            if (vehicleNumber) {
+                // Emit endRoute event to the server
+                socket.emit('endRoute', vehicleNumber);
+
+                // Listen for server confirmation before disconnecting
+                socket.once('routeEnded', () => {
+                    // Disconnect the socket
+                    socket.disconnect();
+                    alert('Route ended and socket connection closed.');
+
+                    // Hide the message section and end session button
+                    document.getElementById('messageSection').style.display = 'none';
+                    document.getElementById('endSession').style.display = 'none';
+                });
+            } else {
+                alert('Please enter your vehicle number to end the route.');
+            }
+        });
+
+        // Listen for routeCreated events
+        socket.on('routeCreated', (data) => {
+            console.log('Route created:', data);
+        });
+
+        // Listen for incoming driver messages
+        socket.on('message', (message) => {
+            console.log('Message received from server:', message);
+            appendMessage(message, 'Server');
+        });
+
+        socket.on('error', (message) => {
+            console.error('Socket error:', message);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logistics Head Dashboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        #connectedTrucks {
+            list-style-type: none;
+            padding: 0;
+        }
+        #connectedTrucks li {
+            background: #fff;
+            margin: 5px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .container {
+            margin-bottom: 20px;
+        }
+        .truck-section {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Logistics Head Dashboard</h1>
+    <button id="fetchTrucksBtn">Fetch Connected Trucks</button>
+    <ul id="connectedTrucks"></ul>
+
+    <div class="truck-section">
+        <h2>Messages for Truck <span id="selectedTruck"></span></h2>
+        <ul id="truckMessages"></ul>
+    </div>
+
+    <script>
+        const baseURL = window.location.hostname === 'localhost' ? 'http://localhost:5001' : 'https://napixbackend-2.onrender.com';
+
+        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NmUxY2RmMzRjOTlhZTViMDA5MDQ1MmEiLCJyb2xlIjoibG9naXN0aWNzX2hlYWQiLCJpYXQiOjE3MjYyMzQzNjN9.9tnJ2gMnMsDf6zXzSfGjzK2VfKp-FraTaUf920yiBrU';
+
+        const socket = io(baseURL, {
+            auth: {
+                token
+            }
+        });
+
+        // Function to save messages to localStorage
+        function saveMessagesToStorage(truck, messages) {
+            localStorage.setItem(truck, JSON.stringify(messages));
+        }
+
+        // Function to load messages from localStorage
+        function loadMessagesFromStorage(truck) {
+            const messages = JSON.parse(localStorage.getItem(truck)) || [];
+            const list = document.getElementById('truckMessages');
+            list.innerHTML = ''; // Clear the message list first
+            messages.forEach(message => {
+                const listItem = document.createElement('li');
+                listItem.textContent = message;
+                list.appendChild(listItem);
+            });
+        }
+
+        // Clear old messages for the selected truck
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            document.getElementById('fetchTrucksBtn').disabled = false;
+        });
+
+        socket.on('disconnect', () => {
+    console.log('Disconnected from server');
+    document.getElementById('fetchTrucksBtn').disabled = true;
+
+    // Clear messages from localStorage when socket disconnects
+    const selectedTruck = document.getElementById('selectedTruck').textContent;
+    if (selectedTruck) {
+        clearOldMessages(selectedTruck); // Clear stored messages
+    }
+});
+// Function to clear old messages from localStorage
+function clearOldMessages(truck) {
+    localStorage.removeItem(truck);
+}
+
+
+        socket.on('connectedTrucks', (trucks) => {
+            const list = document.getElementById('connectedTrucks');
+            list.innerHTML = '';
+            trucks.forEach(truck => {
+                const listItem = document.createElement('li');
+                listItem.textContent = truck;
+                listItem.dataset.truck = truck;
+                listItem.addEventListener('click', () => {
+                    fetchMessages(truck);
+                    loadMessagesFromStorage(truck);  // Load old messages from storage
+                });
+                list.appendChild(listItem);
+            });
+        });
+
+        socket.on('chatMessages', ({ vehicleNumber, message }) => {
+            const selectedTruck = document.getElementById('selectedTruck').textContent;
+            if (selectedTruck === vehicleNumber) {
+                const list = document.getElementById('truckMessages');
+                const listItem = document.createElement('li');
+                const timestampedMessage = `${new Date().toLocaleString()}: ${message}`;
+                listItem.textContent = timestampedMessage;
+                list.appendChild(listItem);
+
+                // Save new messages to localStorage
+                let messages = JSON.parse(localStorage.getItem(vehicleNumber)) || [];
+                messages.push(timestampedMessage);
+                saveMessagesToStorage(vehicleNumber, messages);
+            }
+        });
+
+        socket.on('message', (msg) => {
+            const list = document.getElementById('truckMessages');
+            const listItem = document.createElement('li');
+            const timestampedMessage = `${new Date().toLocaleString()}: ${msg}`;
+            listItem.textContent = timestampedMessage;
+            list.appendChild(listItem);
+
+            // Save new messages to localStorage for the selected truck
+            const selectedTruck = document.getElementById('selectedTruck').textContent;
+            let messages = JSON.parse(localStorage.getItem(selectedTruck)) || [];
+            messages.push(timestampedMessage);
+            saveMessagesToStorage(selectedTruck, messages);
+        });
+
+        document.getElementById('fetchTrucksBtn').addEventListener('click', () => {
+            socket.emit('getConnectedTrucks');
+        });
+
+        function fetchMessages(truckNumber) {
+            document.getElementById('selectedTruck').textContent = truckNumber;
+            document.querySelector('.truck-section').style.display = 'block';
+            socket.emit('getMessages', truckNumber);
+        }
+    </script>
+</body>
+</html>
