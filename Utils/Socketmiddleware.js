@@ -563,50 +563,98 @@ const handleConnection = (io) => (socket) => {
             socket.emit('message', 'An error occurred while ending the route.');
         }
     });
-    socket.on('sendMessage', async (vehicleNumber, message) => {
-                try {
-                    const roomName = `${vehicleNumber}-${socket.user.email}`;
-                    if (!socket.rooms.has(roomName)) {
-                        return socket.emit('message', 'You are not allowed to send messages from this room.');
-                    }
-        
-                    const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
-                    if (!latestRoute) {
-                        return socket.emit('message', 'No active route found for this vehicle.');
-                    }
-        
-                    latestRoute.messages.push({ message, timestamp: new Date() });
-        
-                    // Update status based on the message
-                    // if (latestRoute.status !== 'active alerts' && message.startsWith('D')) {
-                    //     latestRoute.status = 'active alerts';
-                    // } else if (latestRoute.status !== 'driving safely') {
-                    //     latestRoute.status = 'active alerts';
-                    // }
-                    if (latestRoute.status !== 'active alerts' && message.startsWith('D')) {
-                        latestRoute.status = 'active alerts'; // Update to "active alerts" if message indicates an alert
-                    } else if (latestRoute.status !== 'driving safely') {
-                        latestRoute.status = 'driving safely'; // Default to "driving safely"
-                    }
-                    console.log("this is updated ", latestRoute)
-                    await latestRoute.save();
-                    
-                    // Notify logistics heads about the updated status
-                    notifyLogisticsHeads(io, vehicleNumber, `Status updated for vehicle ${vehicleNumber}: ${latestRoute.status}`);
-                    
-        
-                    await latestRoute.save();
-        
-                    // Removed emit logic for status update here
-                    io.to(routeID).emit('message', message);
+    socket.on('alertMessage', async ({ vehicleNumber, alert }) => {
+        try {
+            const roomName = `${vehicleNumber}-${socket.user.email}`;
+            if (!socket.rooms.has(roomName)) {
+                return socket.emit('message', 'You are not allowed to send messages from this room.');
+            }
 
-                    // socket.emit("message", message);
-                    notifyLogisticsHeads(io, vehicleNumber, message);
-                } catch (error) {
-                    // console.error('Error handling sendMessage:', error);
+            const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
+            if (!latestRoute) {
+                return socket.emit('message', 'No active route found for this vehicle.');
+            }
+
+            latestRoute.messages.push({ message, timestamp: new Date() });
+       
+           
+    
+            socket.emit('message', alert);
+    
+            // Notify logistics heads about the alert
+                                notifyLogisticsHeads(io, vehicleNumber, message);
+
+        } catch (error) {
+              console.error('Error handling sendMessage:', error);
                     socket.emit('message', 'An error occurred while sending the message.');
-                }
-            });
+        }
+    });
+    // socket.on('sendMessage', async (vehicleNumber, message) => {
+    //             try {
+    //                 const roomName = `${vehicleNumber}-${socket.user.email}`;
+    //                 if (!socket.rooms.has(roomName)) {
+    //                     return socket.emit('message', 'You are not allowed to send messages from this room.');
+    //                 }
+        
+    //                 const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
+    //                 if (!latestRoute) {
+    //                     return socket.emit('message', 'No active route found for this vehicle.');
+    //                 }
+        
+    //                 latestRoute.messages.push({ message, timestamp: new Date() });
+        
+    //                 // Update status based on the message
+    //                 // if (latestRoute.status !== 'active alerts' && message.startsWith('D')) {
+    //                 //     latestRoute.status = 'active alerts';
+    //                 // } else if (latestRoute.status !== 'driving safely') {
+    //                 //     latestRoute.status = 'active alerts';
+    //                 // }
+    //                 if (latestRoute.status !== 'active alerts' && message.startsWith('D')) {
+    //                     latestRoute.status = 'active alerts'; // Update to "active alerts" if message indicates an alert
+    //                 } else if (latestRoute.status !== 'driving safely') {
+    //                     latestRoute.status = 'driving safely'; // Default to "driving safely"
+    //                 }
+    //                 console.log("this is updated ", latestRoute)
+    //                 await latestRoute.save();
+                    
+    //                 // Notify logistics heads about the updated status
+    //                 notifyLogisticsHeads(io, vehicleNumber, `Status updated for vehicle ${vehicleNumber}: ${latestRoute.status}`);
+                    
+        
+    //                 await latestRoute.save();
+        
+    //                 // Removed emit logic for status update here
+    //                 io.to(routeID).emit('message', message);
+
+    //                 // socket.emit("message", message);
+    //                 notifyLogisticsHeads(io, vehicleNumber, message);
+    //             } catch (error) {
+    //                 // console.error('Error handling sendMessage:', error);
+    //                 socket.emit('message', 'An error occurred while sending the message.');
+    //             }
+    //         });
+    socket.on('sendMessage', async (vehicleNumber, message) => {
+        try {
+            const roomName = `${vehicleNumber}-${socket.user.email}`;
+            if (!socket.rooms.has(roomName)) {
+                return socket.emit('message', 'You are not allowed to send messages from this room.');
+            }
+    
+            const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
+            if (!latestRoute) {
+                return socket.emit('message', 'No active route found for this vehicle.');
+            }
+    
+            latestRoute.messages.push({ message, timestamp: new Date() });
+            await latestRoute.save();
+    
+            io.to(roomName).emit('message', message);  // Emit the message to the room
+            notifyLogisticsHeads(io, vehicleNumber, message);
+        } catch (error) {
+            socket.emit('message', 'An error occurred while sending the message.');
+        }
+    });
+    
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
