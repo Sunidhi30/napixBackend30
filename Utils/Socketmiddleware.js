@@ -596,9 +596,10 @@ const handleConnection = (io) => (socket) => {
                     
         
                     await latestRoute.save();
+                    io.to(roomName).emit('message', message);
         
                     // Removed emit logic for status update here
-                    socket.emit("message", message);
+                    // socket.emit("message", message);
                     notifyLogisticsHeads(io, vehicleNumber, message);
                 } catch (error) {
                     // console.error('Error handling sendMessage:', error);
