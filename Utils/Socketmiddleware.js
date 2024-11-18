@@ -491,46 +491,79 @@ const authenticate = (socket, next) => {
 
 const handleConnection = (io) => (socket) => {
     console.log('New client connected:', socket.id);
-
     socket.on('joinRoom', async (vehicleNumber) => {
-        console.log('Join Room event triggered');
+    try {
         if (!vehicleNumber) {
             return socket.emit('message', 'Invalid vehicle number');
         }
-
-        // Check if the vehicle is already in a room
         if (activeRooms[vehicleNumber]) {
             return socket.emit('message', `Vehicle ${vehicleNumber} is already connected to another driver.`);
         }
 
-        try {
-            // Validate vehicle assignment
-            const assignedTruck = await AssignedTrucks.findOne({
-                vehicleNumber,
-                driverEmail: socket.user.email
-            });
-
-            if (!assignedTruck) {
-                return socket.emit('message', 'You are not assigned to this vehicle');
-            }
-
-            // Create and join room
-            const roomName = `${vehicleNumber}-${socket.user.email}`;
-            socket.join(roomName);
-            activeRooms[vehicleNumber] = socket.user.email; // Mark the vehicle as occupied
-            const updateRoute = await  Route.findOne({vehicleNumber});
-            console.log(updateRoute)
-            updateRoute.status='driving Safely'
-
-            await updateRoute.save();
-            console.log(updateRoute)
-            console.log(`User successfully joined room: ${roomName}`);
-            socket.emit('message', `Successfully joined the room for vehicle ${vehicleNumber}`);
-        } catch (error) {
-            console.error(`[ERROR] [Vehicle: ${vehicleNumber}] [Driver: ${socket.user.email}] ${error.message}`);
-            socket.emit('message', 'An error occurred while joining the room');
+        const assignedTruck = await AssignedTrucks.findOne({
+            vehicleNumber,
+            driverEmail: socket.user.email
+        });
+        if (!assignedTruck) {
+            return socket.emit('message', 'You are not assigned to this vehicle');
         }
-    });
+
+        const roomName = `${vehicleNumber}-${socket.user.email}`;
+        socket.join(roomName);
+        activeRooms[vehicleNumber] = socket.user.email;
+
+        const updateRoute = await Route.findOne({ vehicleNumber });
+        updateRoute.status = 'driving Safely';
+        await updateRoute.save();
+
+        socket.emit('message', `Successfully joined the room for vehicle ${vehicleNumber}`);
+        console.log(`User successfully joined room: ${roomName}`);
+    } catch (error) {
+        console.error(`[ERROR] [Vehicle: ${vehicleNumber}] [Driver: ${socket.user.email}] ${error.message}`);
+        socket.emit('message', 'An error occurred while joining the room');
+    }
+});
+
+
+    // socket.on('joinRoom', async (vehicleNumber) => {
+    //     console.log('Join Room event triggered');
+    //     if (!vehicleNumber) {
+    //         return socket.emit('message', 'Invalid vehicle number');
+    //     }
+
+    //     // Check if the vehicle is already in a room
+    //     if (activeRooms[vehicleNumber]) {
+    //         return socket.emit('message', `Vehicle ${vehicleNumber} is already connected to another driver.`);
+    //     }
+
+    //     try {
+    //         // Validate vehicle assignment
+    //         const assignedTruck = await AssignedTrucks.findOne({
+    //             vehicleNumber,
+    //             driverEmail: socket.user.email
+    //         });
+
+    //         if (!assignedTruck) {
+    //             return socket.emit('message', 'You are not assigned to this vehicle');
+    //         }
+
+    //         // Create and join room
+    //         const roomName = `${vehicleNumber}-${socket.user.email}`;
+    //         socket.join(roomName);
+    //         activeRooms[vehicleNumber] = socket.user.email; // Mark the vehicle as occupied
+    //         const updateRoute = await  Route.findOne({vehicleNumber});
+    //         console.log(updateRoute)
+    //         updateRoute.status='driving Safely'
+
+    //         await updateRoute.save();
+    //         console.log(updateRoute)
+    //         console.log(`User successfully joined room: ${roomName}`);
+    //         socket.emit('message', `Successfully joined the room for vehicle ${vehicleNumber}`);
+    //     } catch (error) {
+    //         console.error(`[ERROR] [Vehicle: ${vehicleNumber}] [Driver: ${socket.user.email}] ${error.message}`);
+    //         socket.emit('message', 'An error occurred while joining the room');
+    //     }
+    // });
 
     socket.on('endRoute', async (vehicleNumber) => {
         try {
