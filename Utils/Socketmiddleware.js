@@ -605,7 +605,17 @@ const handleConnection = (io) => (socket) => {
                     socket.emit('message', 'An error occurred while sending the message.');
                 }
             });
-
+            socket.on('getMessages', async (vehicleNumber) => {
+                        try {
+                            const route = await Route.findOne({ vehicleNumber }).sort({ assignmentTime: -1 });
+                            const messages = route?.messages || [];
+                            socket.emit('chatMessages', messages);
+                        } catch (error) {
+                            // console.error('Error retrieving messages:', error);
+                            socket.emit('message', 'An error occurred while retrieving messages.');
+                        }
+                    });
+                
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
 
