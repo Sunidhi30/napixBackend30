@@ -633,6 +633,41 @@ const handleConnection = (io) => (socket) => {
     //                 socket.emit('message', 'An error occurred while sending the message.');
     //             }
     //         });
+    // this was working 
+    // socket.on('sendMessage', async (vehicleNumber, message) => {
+    //     try {
+    //         const roomName = `${vehicleNumber}-${socket.user.email}`;
+    //         if (!socket.rooms.has(roomName)) {
+    //             return socket.emit('message', 'You are not allowed to send messages from this room.');
+    //         }
+    
+    //         const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
+    //         if (!latestRoute) {
+    //             return socket.emit('message', 'No active route found for this vehicle.');
+    //         }
+    
+    //         latestRoute.messages.push({ message, timestamp: new Date() });
+    //         await latestRoute.save();
+    
+    //         io.to(roomName).emit('message', message);  // Emit the message to the room
+    //         notifyLogisticsHeads(io, vehicleNumber, message);
+    //     } catch (error) {
+    //         socket.emit('message', 'An error occurred while sending the message.');
+    //     }
+    // });
+    
+
+    // socket.on('disconnect', () => {
+    //     console.log(`User disconnected: ${socket.id}`);
+
+    //     // Check if user was assigned to a vehicle and clean up activeRooms
+    //     Object.keys(activeRooms).forEach(vehicleNumber => {
+    //         if (activeRooms[vehicleNumber] === socket.user.email) {
+    //             delete activeRooms[vehicleNumber];
+    //             console.log(`Vehicle ${vehicleNumber} released.`);
+    //         }
+    //     });
+    // });
     socket.on('sendMessage', async (vehicleNumber, message) => {
         try {
             const roomName = `${vehicleNumber}-${socket.user.email}`;
@@ -645,29 +680,21 @@ const handleConnection = (io) => (socket) => {
                 return socket.emit('message', 'No active route found for this vehicle.');
             }
     
+            // Add the new message to the route
             latestRoute.messages.push({ message, timestamp: new Date() });
             await latestRoute.save();
     
-            io.to(roomName).emit('message', message);  // Emit the message to the room
+            // Emit the message to all clients in the room
+            io.to(roomName).emit('messageUpdate', { vehicleNumber, message, timestamp: new Date() });
+    
+            // Notify logistics heads
             notifyLogisticsHeads(io, vehicleNumber, message);
         } catch (error) {
+            console.error('Error sending message:', error);
             socket.emit('message', 'An error occurred while sending the message.');
         }
     });
     
-
-    socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.id}`);
-
-        // Check if user was assigned to a vehicle and clean up activeRooms
-        Object.keys(activeRooms).forEach(vehicleNumber => {
-            if (activeRooms[vehicleNumber] === socket.user.email) {
-                delete activeRooms[vehicleNumber];
-                console.log(`Vehicle ${vehicleNumber} released.`);
-            }
-        });
-    });
-
 //     socket.on('alertMessage', async ({ vehicleNumber, alert }) => {
 //         try {
 //             if (!vehicleNumber || !alert) {
