@@ -106,6 +106,32 @@ const handleConnection = (io) => (socket) => {
     //         }
     //     });
     // });
+    // socket.on('sendMessage', async (vehicleNumber, message) => {
+    //     try {
+    //         const roomName = `${vehicleNumber}-${socket.user.email}`;
+    //         if (!socket.rooms.has(roomName)) {
+    //             return socket.emit('message', 'You are not allowed to send messages from this room.');
+    //         }
+    
+    //         const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
+    //         if (!latestRoute) {
+    //             return socket.emit('message', 'No active route found for this vehicle.');
+    //         }
+    
+    //         // Add the new message to the route
+    //         latestRoute.messages.push({ message, timestamp: new Date() });
+    //         await latestRoute.save();
+    
+    //         // Emit the message to all clients in the room
+    //         io.to(roomName).emit('messageUpdate', { vehicleNumber, message, timestamp: new Date() });
+    
+    //         // Notify logistics heads
+    //         notifyLogisticsHeads(io, vehicleNumber, message);
+    //     } catch (error) {
+    //         console.error('Error sending message:', error);
+    //         socket.emit('message', 'An error occurred while sending the message.');
+    //     }
+    // });
     socket.on('sendMessage', async (vehicleNumber, message) => {
         try {
             const roomName = `${vehicleNumber}-${socket.user.email}`;
@@ -119,19 +145,24 @@ const handleConnection = (io) => (socket) => {
             }
     
             // Add the new message to the route
-            latestRoute.messages.push({ message, timestamp: new Date() });
+            const newMessage = { message, timestamp: new Date() };
+            latestRoute.messages.push(newMessage);
             await latestRoute.save();
     
             // Emit the message to all clients in the room
-            io.to(roomName).emit('messageUpdate', { vehicleNumber, message, timestamp: new Date() });
+            io.to(roomName).emit('messageUpdate', {
+                message: newMessage.message,
+                timestamp: newMessage.timestamp.toISOString(), // Ensure a proper timestamp format
+            });
     
             // Notify logistics heads
-            notifyLogisticsHeads(io, vehicleNumber, message);
+            notifyLogisticsHeads(io, vehicleNumber, newMessage.message);
         } catch (error) {
             console.error('Error sending message:', error);
             socket.emit('message', 'An error occurred while sending the message.');
         }
     });
+    
     
 
     
