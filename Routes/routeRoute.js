@@ -171,6 +171,20 @@ router.delete('/delete-route/:routeId', async (req, res) => {
 });
 
 
+// router.get('/routes/:id/messages', async (req, res) => {
+//     try {
+//         const route = await Route.findById(req.params.id);
+//         if (!route) {
+//             return res.status(404).send({ message: 'Route not found' });
+//         }
+
+//         // Send only the messages
+        
+//         res.send({ messages: route.messages });
+//     } catch (error) {
+//         res.status(500).send({ message: 'Server error', error });
+//     }
+// });
 router.get('/routes/:id/messages', async (req, res) => {
     try {
         const route = await Route.findById(req.params.id);
@@ -178,12 +192,18 @@ router.get('/routes/:id/messages', async (req, res) => {
             return res.status(404).send({ message: 'Route not found' });
         }
 
-        // Send only the messages
-        res.send({ messages: route.messages });
+        // Filter unique messages by `message` content
+        const uniqueMessages = route.messages.filter((msg, index, self) =>
+            index === self.findIndex((m) => m.message === msg.message)
+        );
+
+        console.log('Unique Messages:', uniqueMessages); // Log unique messages for debugging
+        res.send({ messages: uniqueMessages });
     } catch (error) {
         res.status(500).send({ message: 'Server error', error });
     }
 });
+
 
 router.put('/edit-route/:id', async (req, res) => {
     // console.log("edit route hit");
@@ -269,7 +289,21 @@ router.get('/getroutes', async (req, res) => {
         res.status(400).json({ error: err.message });
     }
 });
+router.get('/getRouteMessages/:vehicleNumber',async(req,res)=>{
+    try {
+        let vehicleNumber=req.params.vehicleNumber;
+        console.log(vehicleNumber)
+         let routeInfo = await Route.find({vehicleNumber});
+         console.log(routeInfo)
+         let messages = routeInfo.messages;
+         console.log(messages)
+         res.json({messages});
+    } catch (error) {
+        res.status(401).send(error);
+    }
+     
 
+})
 
 
 
