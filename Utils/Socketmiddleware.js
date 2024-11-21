@@ -1,307 +1,234 @@
 
-// const jwt = require('jsonwebtoken');
-// const AssignedTrucks = require('../Models/AssignedTrucks');
-// const Route = require('../Models/Route');
-// const { JWT_SECRET } = process.env;
-
-// // Track active rooms
-// const activeRooms = {};
-
-// const authenticate = (socket, next) => {
-//     const token = socket.handshake.headers['authorization']?.replace('Bearer ', '');
-//     if (!token) return next(new Error('No token provided. Authentication required.'));
-    
-//     jwt.verify(token, JWT_SECRET, (err, decoded) => {
-//         if (err) return next(new Error('Invalid token. Authentication failed.'));
-//         socket.user = decoded;
-//         next();
-//     });
-// };
-
-// const handleConnection = (io) => (socket) => {
-//     console.log('New client connected:', socket.id);
-
-//     socket.on('joinRoom', async (vehicleNumber) => {
-//         // console.log('Join Room event triggered');
-//         if (!vehicleNumber) {
-//             return socket.emit('message', 'Invalid vehicle number');
-//         }
-
-//         // Check if the vehicle is already in a room
-//         if (activeRooms[vehicleNumber]) {
-//             return socket.emit('message', `Vehicle ${vehicleNumber} is already connected to another driver.`);
-//         }
-
-//         try {
-//             // Validate vehicle assignment
-//             const assignedTruck = await AssignedTrucks.findOne({
-//                 vehicleNumber,
-//                 driverEmail: socket.user.email
-//             });
-
-//             if (!assignedTruck) {
-//                 return socket.emit('message', 'You are not assigned to this vehicle');
-//             }
-
-//             // Create and join room
-//             const roomName = `${vehicleNumber}-${socket.user.email}`;
-//             socket.join(roomName);
-//             activeRooms[vehicleNumber] = socket.user.email; // Mark the vehicle as occupied
-//             const updateRoute = await  Route.findOne({vehicleNumber});
-//             console.log(updateRoute)
-//             updateRoute.status='driving Safely'
-
-//             await updateRoute.save();
-//             console.log(updateRoute)
-            
-//             // console.log(`User successfully joined room: ${roomName}`);
-//             socket.emit('message', `Successfully joined the room for vehicle ${vehicleNumber}`);
-//         } catch (error) {
-//             console.error(`[ERROR] [Vehicle: ${vehicleNumber}] [Driver: ${socket.user.email}] ${error.message}`);
-//             socket.emit('message', 'An error occurred while joining the room');
-//         }
-//     });
-
-//     socket.on('endRoute', async (vehicleNumber) => {
-//         try {
-//             const roomName = `${vehicleNumber}-${socket.user.email}`;
-//             if (!socket.rooms.has(roomName)) {
-//                 return socket.emit('message', 'You are not in the room for this vehicle.');
-//             }
-
-//             socket.leave(roomName);
-//             delete activeRooms[vehicleNumber]; // Release the room
-
-//             const latestRoute = await Route.findOne({
-//                 vehicleNumber,
-//                 status: { $ne: 'ended' }
-//             }).sort({ assignmentTime: -1 });
-
-//             if (latestRoute) {
-//                 latestRoute.status = 'ended'; // Mark route as ended
-//                 await latestRoute.save();
-//                 socket.emit('message', `Route has ended for vehicle ${vehicleNumber}.`);
-//                 notifyLogisticsHeads(io, vehicleNumber, `Route has ended for vehicle ${vehicleNumber}.`);
-//             } else {
-//                 socket.emit('message', `No active route found for vehicle ${vehicleNumber} that is not ended.`);
-//             }
-
-//             // Instead of using global state, consider updating the DB or an in-memory cache.
-//             // global.connectedTrucks = global.connectedTrucks.filter(truck => truck !== vehicleNumber);
-//         } catch (error) {
-//             console.error(`[ERROR] [Vehicle: ${vehicleNumber}] [Driver: ${socket.user.email}] ${error.message}`);
-//             socket.emit('message', 'An error occurred while ending the route.');
-//         }
-//     });
-   
-    
-
-//     // socket.on('disconnect', () => {
-//     //     console.log(`User disconnected: ${socket.id}`);
-
-//     //     // Check if user was assigned to a vehicle and clean up activeRooms
-//     //     Object.keys(activeRooms).forEach(vehicleNumber => {
-//     //         if (activeRooms[vehicleNumber] === socket.user.email) {
-//     //             delete activeRooms[vehicleNumber];
-//     //             console.log(`Vehicle ${vehicleNumber} released.`);
-//     //         }
-//     //     });
-//     // });
-//     // socket.on('sendMessage', async (vehicleNumber, message) => {
-//     //     try {
-//     //         const roomName = `${vehicleNumber}-${socket.user.email}`;
-//     //         if (!socket.rooms.has(roomName)) {
-//     //             return socket.emit('message', 'You are not allowed to send messages from this room.');
-//     //         }
-    
-//     //         const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
-//     //         if (!latestRoute) {
-//     //             return socket.emit('message', 'No active route found for this vehicle.');
-//     //         }
-    
-//     //         // Add the new message to the route
-//     //         latestRoute.messages.push({ message, timestamp: new Date() });
-//     //         await latestRoute.save();
-    
-//     //         // Emit the message to all clients in the room
-//     //         io.to(roomName).emit('messageUpdate', { vehicleNumber, message, timestamp: new Date() });
-    
-//     //         // Notify logistics heads
-//     //         notifyLogisticsHeads(io, vehicleNumber, message);
-//     //     } catch (error) {
-//     //         console.error('Error sending message:', error);
-//     //         socket.emit('message', 'An error occurred while sending the message.');
-//     //     }
-//     // });
-//     socket.on('sendMessage', async (vehicleNumber, message) => {
-//         try {
-//             const roomName = `${vehicleNumber}-${socket.user.email}`;
-//             if (!socket.rooms.has(roomName)) {
-//                 return socket.emit('message', 'You are not allowed to send messages from this room.');
-//             }
-    
-//             const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
-//             if (!latestRoute) {
-//                 return socket.emit('message', 'No active route found for this vehicle.');
-//             }
-    
-//             // Add the new message to the route
-//             const newMessage = { message, timestamp: new Date() };
-//             latestRoute.messages.push(newMessage);
-//             await latestRoute.save();
-//             console.log("this is the new log for messageUpdate")
-//             console.log(newMessage);
-//             // Emit the message to all clients in the room
-//             io.to(roomName).emit('newMessage', {
-//                 message: newMessage.message,
-//                 timestamp: newMessage.timestamp.toISOString(), // Ensure a proper timestamp format
-//             });
-    
-//             // Notify logistics heads
-//             notifyLogisticsHeads(io, vehicleNumber, newMessage.message);
-//         } catch (error) {
-//             console.error('Error sending message:', error);
-//             socket.emit('message', 'An error occurred while sending the message.');
-//         }
-//     });
-    
-    
-
-    
-// };
-
-// const notifyLogisticsHeads = (io, vehicleNumber, message) => {
-//     // Keep track of logistics head sockets and emit only to them.
-//     io.sockets.sockets.forEach(client => {
-//         if (client.user && client.user.role === 'logistics_head') {
-//             client.emit('statusUpdate', { vehicleNumber, message });
-//         }
-//     });
-// };
-
-// module.exports = { authenticate, handleConnection };
 const jwt = require('jsonwebtoken');
 const AssignedTrucks = require('../Models/AssignedTrucks');
 const Route = require('../Models/Route');
 const { JWT_SECRET } = process.env;
-const mongoose = require("mongoose");
 
-// Helper function to check if a truck is already connected
-const isTruckConnected = (vehicleNumber) => global.connectedTrucks.includes(vehicleNumber);
+// Track active rooms
+const activeRooms = {};
 
 const authenticate = (socket, next) => {
     const token = socket.handshake.headers['authorization']?.replace('Bearer ', '');
-    console.log('Received token:', token);
-    if (!token) return next(new Error('Authentication error'));
-
+    if (!token) return next(new Error('No token provided. Authentication required.'));
+    
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
-        if (err) return next(new Error('Authentication error'));
+        if (err) return next(new Error('Invalid token. Authentication failed.'));
         socket.user = decoded;
         next();
     });
 };
 
-
-// socketmiddleware.js
 const handleConnection = (io) => (socket) => {
     console.log('New client connected:', socket.id);
 
+    // socket.on('joinRoom', async (vehicleNumber) => {
+    //     // console.log('Join Room event triggered');
+    //     if (!vehicleNumber) {
+    //         return socket.emit('message', 'Invalid vehicle number');
+    //     }
+
+    //     // Check if the vehicle is already in a room
+    //     if (activeRooms[vehicleNumber]) {
+    //         return socket.emit('message', `Vehicle ${vehicleNumber} is already connected to another driver.`);
+    //     }
+
+    //     try {
+    //         // Validate vehicle assignment
+    //         const assignedTruck = await AssignedTrucks.findOne({
+    //             vehicleNumber,
+    //             driverEmail: socket.user.email
+    //         });
+
+    //         if (!assignedTruck) {
+    //             return socket.emit('message', 'You are not assigned to this vehicle');
+    //         }
+
+    //         // Create and join room
+    //         const roomName = `${vehicleNumber}-${socket.user.email}`;
+    //         socket.join(roomName);
+    //         activeRooms[vehicleNumber] = socket.user.email; // Mark the vehicle as occupied
+    //         const updateRoute = await  Route.findOne({vehicleNumber});
+    //         console.log(updateRoute)
+    //         updateRoute.status='driving Safely'
+
+    //         await updateRoute.save();
+          
+            
+    //         // console.log(`User successfully joined room: ${roomName}`);
+    //         socket.emit('message', `Successfully joined the room for vehicle ${vehicleNumber}`);
+    //     } catch (error) {
+    //         console.error(`[ERROR] [Vehicle: ${vehicleNumber}] [Driver: ${socket.user.email}] ${error.message}`);
+    //         socket.emit('message', 'An error occurred while joining the room');
+    //     }
+    // });
     socket.on('joinRoom', async (vehicleNumber) => {
+        // Validate the vehicle number
+        if (!vehicleNumber) {
+            return socket.emit('message', 'Invalid vehicle number');
+        }
+    
+        // Check if the vehicle is already in a room
+        if (activeRooms[vehicleNumber]) {
+            return socket.emit('message', `Vehicle ${vehicleNumber} is already connected to another driver.`);
+        }
+    
         try {
-            if (socket.user.role !== 'driver') {
-                return socket.emit('message', 'Invalid role');
-            }
-
-            // Use vehicleNumber as room key
-            const roomName = vehicleNumber;
-
-            // Check if driver is assigned to this vehicle
-            const assignedTruck = await AssignedTrucks.findOne({ 
-                vehicleNumber, 
-                driverEmail: socket.user.email 
+            // Validate vehicle assignment
+            const assignedTruck = await AssignedTrucks.findOne({
+                vehicleNumber,
+                driverEmail: socket.user.email
             });
-
+    
             if (!assignedTruck) {
                 return socket.emit('message', 'You are not assigned to this vehicle');
             }
-
-            // Find active route
-            const route = await Route.findOne({ 
-                vehicleNumber, 
-                status: { $ne: 'ended' } 
-            }).sort({ createdAt: -1 });
-
-            if (!route) {
-                return socket.emit('message', 'No active route found');
-            }
-
-            // Join room and update status
+    
+            // Create and join room
+            const roomName = `${vehicleNumber}-${socket.user.email}`;
             socket.join(roomName);
-            route.status = 'driving safely';
-            await route.save();
-
-            // Notify room of status change
-            io.to(roomName).emit('statusUpdate', {
-                routeId: route._id,
-                status: route.status
+            activeRooms[vehicleNumber] = socket.user.email; // Mark the vehicle as occupied
+    
+            // Update the route status
+            const updateRoute = await Route.findOne({ vehicleNumber });
+            if (!updateRoute) {
+                return socket.emit('message', 'Route not found for the specified vehicle');
+            }
+    
+            // Initial status when joining the room
+            updateRoute.status = 'driving Safely';
+    
+            // Handle status updates based on messages
+            socket.on('message', async (message) => {
+                if (message.includes('Drowsiness detected at')) {
+                    updateRoute.status = 'active alerts';
+                } else if (message.includes('Monitoring Stopped at')) {
+                    updateRoute.status = 'ended';
+                    // Leave room when monitoring stops
+                    socket.leave(vehicleNumber);
+                    delete activeRooms[vehicleNumber];
+                }
+    
+                // Save the updated status to the database
+                await updateRoute.save();
             });
-
-            socket.emit('message', 'Successfully joined');
+    
+            await updateRoute.save();
+    
+            // Inform the user they joined successfully
+            socket.emit('message', `Successfully joined the room for vehicle ${vehicleNumber}`);
         } catch (error) {
-            console.error('Error joining room:', error);
-            socket.emit('message', 'Failed to join room');
+            console.error(`[ERROR] [Vehicle: ${vehicleNumber}] [Driver: ${socket.user.email}] ${error.message}`);
+            socket.emit('message', 'An error occurred while joining the room');
         }
     });
+    
 
+    socket.on('endRoute', async (vehicleNumber) => {
+        try {
+            const roomName = `${vehicleNumber}-${socket.user.email}`;
+            if (!socket.rooms.has(roomName)) {
+                return socket.emit('message', 'You are not in the room for this vehicle.');
+            }
+
+            socket.leave(roomName);
+            delete activeRooms[vehicleNumber]; // Release the room
+
+            const latestRoute = await Route.findOne({
+                vehicleNumber,
+                status: { $ne: 'ended' }
+            }).sort({ assignmentTime: -1 });
+
+            if (latestRoute) {
+                latestRoute.status = 'ended'; // Mark route as ended
+                await latestRoute.save();
+                socket.emit('message', `Route has ended for vehicle ${vehicleNumber}.`);
+                notifyLogisticsHeads(io, vehicleNumber, `Route has ended for vehicle ${vehicleNumber}.`);
+            } else {
+                socket.emit('message', `No active route found for vehicle ${vehicleNumber} that is not ended.`);
+            }
+
+            // Instead of using global state, consider updating the DB or an in-memory cache.
+            // global.connectedTrucks = global.connectedTrucks.filter(truck => truck !== vehicleNumber);
+        } catch (error) {
+            console.error(`[ERROR] [Vehicle: ${vehicleNumber}] [Driver: ${socket.user.email}] ${error.message}`);
+            socket.emit('message', 'An error occurred while ending the route.');
+        }
+    });
+   
+    
+
+    // socket.on('disconnect', () => {
+    //     console.log(`User disconnected: ${socket.id}`);
+
+    //     // Check if user was assigned to a vehicle and clean up activeRooms
+    //     Object.keys(activeRooms).forEach(vehicleNumber => {
+    //         if (activeRooms[vehicleNumber] === socket.user.email) {
+    //             delete activeRooms[vehicleNumber];
+    //             console.log(`Vehicle ${vehicleNumber} released.`);
+    //         }
+    //     });
+    // });
+    // socket.on('sendMessage', async (vehicleNumber, message) => {
+    //     try {
+    //         const roomName = `${vehicleNumber}-${socket.user.email}`;
+    //         if (!socket.rooms.has(roomName)) {
+    //             return socket.emit('message', 'You are not allowed to send messages from this room.');
+    //         }
+    
+    //         const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
+    //         if (!latestRoute) {
+    //             return socket.emit('message', 'No active route found for this vehicle.');
+    //         }
+    
+    //         // Add the new message to the route
+    //         latestRoute.messages.push({ message, timestamp: new Date() });
+    //         await latestRoute.save();
+    
+    //         // Emit the message to all clients in the room
+    //         io.to(roomName).emit('messageUpdate', { vehicleNumber, message, timestamp: new Date() });
+    
+    //         // Notify logistics heads
+    //         notifyLogisticsHeads(io, vehicleNumber, message);
+    //     } catch (error) {
+    //         console.error('Error sending message:', error);
+    //         socket.emit('message', 'An error occurred while sending the message.');
+    //     }
+    // });
     socket.on('sendMessage', async (vehicleNumber, message) => {
         try {
-            const route = await Route.findOne({ 
-                vehicleNumber, 
-                status: { $ne: 'ended' } 
-            });
-
-            if (!route) {
-                return socket.emit('message', 'No active route found');
+            const roomName = `${vehicleNumber}-${socket.user.email}`;
+            if (!socket.rooms.has(roomName)) {
+                return socket.emit('message', 'You are not allowed to send messages from this room.');
             }
-
-            // Add message to route
-            route.messages.push({
-                message,
-                timestamp: new Date(),
-                isRead: false
-            });
-
-            // Update status based on message content
-            if (message.includes('Drowsiness detected at')) {
-                route.status = 'active alerts';
-            } else if (message.includes('Monitoring Stopped at')) {
-                route.status = 'ended';
-                // Leave room when monitoring stops
-                socket.leave(vehicleNumber);
+    
+            const latestRoute = await Route.findOne({ vehicleNumber, status: { $ne: 'ended' } }).sort({ assignmentTime: -1 });
+            if (!latestRoute) {
+                return socket.emit('message', 'No active route found for this vehicle.');
             }
-
-            await route.save();
-
-            // Broadcast message and status update to room
-            io.to(vehicleNumber).emit('newMessage', {
-                routeId: route._id,
-                message,
-                timestamp: new Date()
+    
+            // Add the new message to the route
+            const newMessage = { message, timestamp: new Date() };
+            latestRoute.messages.push(newMessage);
+            await latestRoute.save();
+            console.log("this is the new log for messageUpdate")
+            console.log(newMessage);
+            // Emit the message to all clients in the room
+            io.to(roomName).emit('newMessage', {
+                message: newMessage.message,
+                timestamp: newMessage.timestamp.toISOString(), // Ensure a proper timestamp format
             });
-
-            io.to(vehicleNumber).emit('statusUpdate', {
-                routeId: route._id,
-                status: route.status
-            });
+    
+            // Notify logistics heads
+            notifyLogisticsHeads(io, vehicleNumber, newMessage.message);
         } catch (error) {
-            console.error('Error handling message:', error);
-            socket.emit('message', 'Failed to send message');
+            console.error('Error sending message:', error);
+            socket.emit('message', 'An error occurred while sending the message.');
         }
     });
+    
+    
 
-    socket.on('disconnect', async () => {
-        console.log('Client disconnected:', socket.id);
-    });
+    
 };
 
 const notifyLogisticsHeads = (io, vehicleNumber, message) => {
@@ -313,6 +240,4 @@ const notifyLogisticsHeads = (io, vehicleNumber, message) => {
     });
 };
 
-
 module.exports = { authenticate, handleConnection };
-//original
